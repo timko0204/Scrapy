@@ -1,0 +1,67 @@
+#2016_2_2, timko
+import sys
+import time
+import random
+if sys.getdefaultencoding() != 'utf-8':
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
+import scrapy
+
+from tutorial.items import DmozItem
+
+
+class DmozSpider(scrapy.Spider):
+    name = "dmoz"
+    #allowed_domains = ["google.com.tw"]
+    #關鍵字網址輸入
+    start_urls = [
+        "https://www.google.com.tw/search?hl=zh-TW&authuser=0&tbm=nws&q=%E7%B6%93%E6%BF%9F%E6%97%A5%E5%A0%B1+%E5%8F%8B%E9%81%94&oq=%E7%B6%93%E6%BF%9F%E6%97%A5%E5%A0%B1+%E5%8F%8B%E9%81%94&gs_l=serp.3...1644285.1649053.0.1649583.19.17.0.2.2.0.73.681.17.17.0....0...1c.1j4.64.serp..0.6.220.HEYVIa0yDBc%22&gws_rd=cr&ei=e2OvVsP2KYO5mwXy3IfgCw"
+          ]
+    global k
+    global htmlN
+    k = 0        #計次用
+    htmlN = 0
+    def parse(self, response):
+        global k, tempName, htmlN
+        k=  k + 1
+        for sel in response.xpath('.//div[contains(@class,"g")]'):
+            item = DmozItem()
+            item['title'] = sel.xpath('.//h3[@class="r"]/a/text()').extract()
+            
+            item['link'] = sel.xpath('.//a//@href').extract()
+            item['desc'] = sel.xpath('.//span/text()').extract()
+            
+            for ai in sel.xpath('.//a/@href'):
+                item['file_urls'] = 'http://www.google.com' + ai.extract()
+                
+                yield scrapy.Request(item['file_urls'], callback=self.parse_dir_contents)
+                print item['file_urls']
+                
+            yield item
+        t = random.randint(2, 4)
+        time.sleep(t)
+        if k < 2:                       #k:往下一頁次數控制
+            if response.xpath('//td[@class="b"]/a/@href'):
+                turls = "".join(response.xpath('//td[@class="b"]/a/@href').extract())
+                nurls = 'http://www.google.com'+turls
+                yield scrapy.Request(nurls, callback=self.parse)
+                print k
+
+               
+
+         
+
+
+    def parse_dir_contents(self, response):     #下載該頁 html檔案
+        
+        global htmlN
+        htmlN = htmlN + 1
+        print response.xpath('//head/title/text()').extract()
+        tempName = "".join(response.xpath('//head/title/text()').extract())
+        tempName = tempName.strip()
+        tempName = str(htmlN) +tempName[4:8]
+        filename = tempName + '.html' #response.url.split("/")[3] + '.html'
+        print filename
+        with open(filename, 'wb') as f:
+            f.write(response.body)
+   
